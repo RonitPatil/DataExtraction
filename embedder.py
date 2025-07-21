@@ -1,6 +1,5 @@
 import fitz
 import tiktoken
-from astrapy import DataAPIClient
 import streamlit as st
 import os
 import hashlib
@@ -10,8 +9,6 @@ from local_models import get_local_embeddings
 EMBED_DIMENSIONS = 384  # all-MiniLM-L6-v2 dimensions
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
-
-UPLOADED_PDFS_FILE = "uploaded_pdfs.json"
 
 def load_uploaded_pdfs():
     if os.path.exists(UPLOADED_PDFS_FILE):
@@ -30,24 +27,16 @@ def get_pdf_hash(pdf_path):
     with open(pdf_path, 'rb') as f:
         return hashlib.md5(f.read()).hexdigest()
 
-def get_astra_collection():
-    astra_client = DataAPIClient(os.getenv("ASTRA_DB_APPLICATION_TOKEN"))
-    database = astra_client.get_database_by_api_endpoint(os.getenv("ASTRA_DB_API_ENDPOINT"))
+def get_faiss_collection():
+    from faiss_store import get_faiss_vectorstore, create_faiss_vectorstore
     
-    collection_name = os.getenv("ASTRA_DB_COLLECTION")
+    vectorstore = get_faiss_vectorstore()
+    if vectorstore is None:
+        vectorstore = create_faiss_vectorstore()
+        if vectorstore:
+            st.success("✅ Faiss index created successfully!")
     
-    try:
-        collection = database.get_collection(collection_name)
-        return collection
-    except Exception:
-        st.info(f"Collection '{collection_name}' doesn't exist. Creating it now...")
-        collection = database.create_collection(
-            collection_name,
-            dimension=EMBED_DIMENSIONS,
-            metric="cosine"
-        )
-        st.success(f"✅ Collection '{collection_name}' created successfully!")
-        return collection
+    return vectorstore
 
 def process_pdf(pdf_path, pdf_filename=None):
     doc = fitz.open(pdf_path)
@@ -94,53 +83,9 @@ def mark_pdf_as_uploaded(pdf_path, pdf_filename):
     uploaded_pdfs.add(pdf_id)
     save_uploaded_pdfs(uploaded_pdfs)
 
-def upload_chunks_to_astradb(chunks, metadatas, pdf_filename=None):
-    collection = get_astra_collection()
-    embeddings_model = get_local_embeddings()
-    
-    if not embeddings_model:
-        st.error("Failed to load embedding model")
-        return
-    
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    documents = []
-    for i, chunk in enumerate(chunks):
-        progress = (i + 1) / len(chunks)
-        progress_bar.progress(progress)
-        status_text.text(f"Preparing embedding {i + 1}/{len(chunks)} for {pdf_filename or 'PDF'}")
-        
-        # Generate embedding using local model
-        embedding = embeddings_model.embed_query(chunk)
-        
-        chunk_id = f"{pdf_filename or 'unknown'}_{i}" if pdf_filename else f"chunk-{i}"
-        
-        metadata = metadatas[i].copy()
-        if pdf_filename:
-            metadata["document_name"] = pdf_filename
-        
-        document = {
-            "_id": chunk_id,
-            "$vector": embedding,
-            "content": chunk,
-            "page": metadata.get("page"),
-            "document_name": metadata.get("document_name", pdf_filename),
-            "metadata": metadata
-        }
-        documents.append(document)
-    
-    status_text.text(f"Uploading {len(documents)} documents to database...")
-    
-    batch_size = 20
-    for i in range(0, len(documents), batch_size):
-        batch = documents[i:i + batch_size]
-        collection.insert_many(batch)
-        progress = (i + batch_size) / len(documents)
-        progress_bar.progress(min(progress, 1.0))
-    
-    progress_bar.empty()
-    status_text.empty()
+def upload_chunks_to_faiss(chunks, metadatas, pdf_filename=None):
+    from faiss_store import upload_chunks_to_faiss as upload_to_faiss
+    upload_to_faiss(chunks, metadatas, pdf_filename)
 
 def get_uploaded_pdfs_list():
     uploaded_pdfs = load_uploaded_pdfs()
@@ -151,11 +96,6 @@ def clear_uploaded_pdfs():
         os.remove(UPLOADED_PDFS_FILE)
     return True
 
-def clear_astra_collection():
-    try:
-        collection = get_astra_collection()
-        collection.delete_many({})
-        return True
-    except Exception as e:
-        st.error(f"Error clearing collection: {e}")
-        return False 
+def clear_faiss_collection():
+    from faiss_store import clear_faiss_collection as clear_faiss
+    return clear_faiss() 

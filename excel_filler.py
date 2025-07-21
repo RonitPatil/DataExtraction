@@ -1,4 +1,3 @@
-from langchain_astradb import AstraDBVectorStore
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.llms import HuggingFacePipeline
 from langchain.schema import Document
@@ -9,23 +8,13 @@ import openpyxl
 from openpyxl.cell import MergedCell
 import os
 from local_models import get_local_embeddings, get_local_llm
+from faiss_store import get_faiss_vectorstore
 
-def get_astra_vectorstore():
-    embeddings = get_local_embeddings()
-    if not embeddings:
-        st.error("Failed to load embedding model")
-        return None
-    
-    vectorstore = AstraDBVectorStore(
-        embedding=embeddings,
-        collection_name=os.getenv("ASTRA_DB_COLLECTION"),
-        api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT"),
-        token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
-    )
-    return vectorstore
+def get_faiss_vectorstore():
+    return get_faiss_vectorstore()
 
 def get_rag_components():
-    vectorstore = get_astra_vectorstore()
+    vectorstore = get_faiss_vectorstore()
     if not vectorstore:
         return None, None
     

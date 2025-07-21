@@ -3,38 +3,33 @@
 import os
 from typing import List, Tuple
 from langchain.chains import ConversationalRetrievalChain
-from langchain_astradb import AstraDBVectorStore
 from local_models import get_local_embeddings, get_local_llm
-
-# ─────────── Environment ───────────
-ASTRA_DB_COLLECTION     = os.getenv("ASTRA_DB_COLLECTION")
-ASTRA_DB_API_ENDPOINT   = os.getenv("ASTRA_DB_API_ENDPOINT")
-ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
+from faiss_store import get_faiss_vectorstore
 
 # ───────── Embeddings & Store ────────
 embeddings = get_local_embeddings()
 if embeddings:
-    vectorstore = AstraDBVectorStore(
-        embedding=embeddings,
-        collection_name=ASTRA_DB_COLLECTION,
-        api_endpoint=ASTRA_DB_API_ENDPOINT,
-        token=ASTRA_DB_APPLICATION_TOKEN
-    )
+    vectorstore = get_faiss_vectorstore()
     
-    # ───────── Retriever (k=2) ─────────
-    retriever = vectorstore.as_retriever(
-        search_kwargs={"k": 2}
-    )
-    
-    # ─────────── LLM & Chain ───────────
-    llm = get_local_llm()
-    if llm:
-        chain = ConversationalRetrievalChain.from_llm(
-            llm=llm,
-            retriever=retriever,
-            return_source_documents=True
+    if vectorstore:
+        # ───────── Retriever (k=2) ─────────
+        retriever = vectorstore.as_retriever(
+            search_kwargs={"k": 2}
         )
+        
+        # ─────────── LLM & Chain ───────────
+        llm = get_local_llm()
+        if llm:
+            chain = ConversationalRetrievalChain.from_llm(
+                llm=llm,
+                retriever=retriever,
+                return_source_documents=True
+            )
+        else:
+            chain = None
     else:
+        retriever = None
+        llm = None
         chain = None
 else:
     vectorstore = None

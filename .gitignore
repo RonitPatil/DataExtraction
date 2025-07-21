@@ -1,6 +1,9 @@
 # Stored PDFs directory
 stored_pdfs/
 
+# Faiss index directory
+faiss_index/
+
 # Environment files
 .env
 .env.local

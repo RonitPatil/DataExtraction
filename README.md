@@ -52,7 +52,7 @@ streamlit run app.py
 ### Architecture
 - **Streamlit App** (port 8501): Main web interface
 - **Flask PDF Server** (port 5001): Serves PDF files with proper headers
-- **AstraDB**: Vector storage for document embeddings
+- **Faiss**: Local vector storage for document embeddings
 - **OpenAI**: LLM for text extraction and chat functionality
 
 ### How Clickable Pages Work

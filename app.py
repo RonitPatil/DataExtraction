@@ -4,7 +4,7 @@ import os
 
 load_dotenv()
 
-from embedder import process_pdf, upload_chunks_to_astradb, is_pdf_already_uploaded, mark_pdf_as_uploaded, get_uploaded_pdfs_list, clear_uploaded_pdfs, clear_astra_collection
+from embedder import process_pdf, upload_chunks_to_faiss, is_pdf_already_uploaded, mark_pdf_as_uploaded, get_uploaded_pdfs_list, clear_uploaded_pdfs, clear_faiss_collection
 from excel_filler import fill_excel_with_rag
 from chat import rag_chat
 import pandas as pd
@@ -417,7 +417,7 @@ if uploaded_pdfs and uploaded_excel:
         else:
             st.info(f"🔄 Processing PDF {i+1}/{len(pdf_filenames)}: '{pdf_filename}'...")
             chunks, metadatas = process_pdf(pdf_path, pdf_filename)
-            upload_chunks_to_astradb(chunks, metadatas, pdf_filename)
+            upload_chunks_to_faiss(chunks, metadatas, pdf_filename)
             mark_pdf_as_uploaded(pdf_path, pdf_filename)
             st.success(f"✅ Successfully processed and uploaded '{pdf_filename}'")
 
